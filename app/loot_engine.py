@@ -45,10 +45,10 @@ class LootEngine:
         chance = state.lucky_chance
         is_lucky = chance >= 100 or self.rng.random() < chance / 100
 
-        if roll == 20:
-            pool = self.repository.artifacts("GOOD" if is_lucky else "DANGEROUS")
+        if roll == 20 and is_lucky:
+            pool = self.repository.all_artifacts()
             if not pool:
-                raise RuntimeError("Для результата 20 не найден подходящий пул артефактов")
+                raise RuntimeError("В базе не найдено ни одного артефакта")
             artifact = self.rng.choice(pool)
             result = LootResult(
                 roll=20,
@@ -56,6 +56,7 @@ class LootEngine:
                 description=artifact.description,
                 value_cp=artifact.value_cp,
                 is_lucky=is_lucky,
+                is_artifact=True,
                 item_id=artifact.id,
             )
         else:
@@ -69,6 +70,7 @@ class LootEngine:
                 description=item.lucky_description if is_lucky else item.description,
                 value_cp=item.lucky_value_cp if is_lucky else item.value_cp,
                 is_lucky=is_lucky,
+                is_artifact=False,
                 item_id=item.id,
             )
 

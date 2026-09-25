@@ -57,6 +57,7 @@ class LootRepository:
                 self._artifacts_by_polarity[artifact.polarity].append(artifact)
 
     def items_for_roll(self, roll: int) -> tuple[Item, ...]:
+        """Return ordinary item rows for any physical d20 value, including 20."""
         return tuple(self._items_by_roll.get(roll, ()))
 
     def artifacts(self, polarity: str) -> tuple[Artifact, ...]:
@@ -66,6 +67,7 @@ class LootRepository:
         return tuple(item for items in self._items_by_roll.values() for item in items)
 
     def all_artifacts(self) -> tuple[Artifact, ...]:
+        """Return the separate jackpot pool; polarity is informational here."""
         return tuple(
             artifact
             for artifacts in self._artifacts_by_polarity.values()

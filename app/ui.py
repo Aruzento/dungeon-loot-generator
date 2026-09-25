@@ -204,7 +204,12 @@ class DungeonLootApp:
     def _show_result(self, result: LootResult) -> None:
         self.status_var.set(f"Результат d20: {result.roll}")
         self.status_label.configure(fg=COLORS["muted"])
-        self.badge_var.set("✦ НЕОБЫЧНАЯ НАХОДКА ✦" if result.is_lucky else "НАХОДКА")
+        if result.is_artifact:
+            self.badge_var.set("✦ ДЖЕКПОТ — АРТЕФАКТ ✦")
+        elif result.is_lucky:
+            self.badge_var.set("✦ НЕОБЫЧНАЯ НАХОДКА ✦")
+        else:
+            self.badge_var.set("НАХОДКА")
         self.badge_label.configure(fg=COLORS["lucky"] if result.is_lucky else COLORS["muted"])
         self.card.configure(
             bg=COLORS["surface_raised"] if result.is_lucky else COLORS["surface"],

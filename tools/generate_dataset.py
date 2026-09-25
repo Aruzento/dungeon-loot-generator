@@ -9,6 +9,16 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+from rebalance_catalog import (
+    EXTRA_NAMES,
+    ROLL20_NAMES,
+    band_tag,
+    base_metadata,
+    base_name_for,
+    extra_profile_for,
+    roll20_metadata,
+)
+
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -144,19 +154,19 @@ CONDITIONS = {
     4: "Дешёвая бытовая вещь заметно послужила, но ещё не разваливается.",
     5: "Простой расходник пригодится один раз, если не ждать от него чудес.",
     6: "Добротная крестьянская вещь создана для повседневной работы.",
-    7: "Недорогое снаряжение выглядит простым, зато остаётся рабочим.",
-    8: "Обычный путешественник охотно положил бы такую вещь в свой мешок.",
-    9: "Полезная находка находится в хорошем состоянии и готова к делу.",
-    10: "Хорошее снаряжение заметно превосходит дешёвые рыночные аналоги.",
-    11: "Качественная работа рассчитана на годы уверенной службы.",
-    12: "Ценная вещь сочетает дорогие материалы и умелое изготовление.",
-    13: "Редкое изделие нечасто появляется даже у опытных торговцев.",
-    14: "Дорогая работа достойна богатого воина, мастера или знатока.",
-    15: "Очень редкая находка сразу привлекает внимание серьёзных коллекционеров.",
+    7: "Нормальная повседневная вещь остаётся простой, но хорошо выполняет свою работу.",
+    8: "Качественный бытовой предмет пригодится дома, в мастерской или обычной дороге.",
+    9: "Хорошая повседневная вещь находится в отличном состоянии и готова к долгой службе.",
+    10: "Дорогая бытовая работа заметно превосходит обычные рыночные аналоги.",
+    11: "Простое приключенческое снаряжение рассчитано на надёжную полевую службу.",
+    12: "Качественная экипировка сочетает хорошие материалы и продуманную конструкцию.",
+    13: "Дорогое снаряжение создано опытным мастером и хорошо подготовлено к опасной дороге.",
+    14: "Очень хорошее оружие, защита или инструмент достойны профессионального приключенца.",
+    15: "Редкое мастерское снаряжение сразу ощущается настоящей ценной находкой.",
     16: "Необычная магия ощущается слабо, но действует устойчиво.",
     17: "Сильное волшебство заключено в тщательно созданном предмете.",
-    18: "Могущественная вещь способна заметно изменить исход опасного приключения.",
-    19: "Легендарная реликвия несёт славу, силу и след большой истории.",
+    18: "Сильный магический предмет способен заметно изменить исход опасного приключения.",
+    19: "Очень редкая и сильная вещь может стать центральной частью экипировки героя.",
 }
 
 LUCKY_ENDINGS = [
@@ -192,29 +202,30 @@ LUCKY_TIERS = {
     16: "Слабое чудо проявилось в чистой и необычайно устойчивой форме.",
     17: "Сильные чары дополнены редким свойством, которого нет у известных копий.",
     18: "Могущественная магия раскрыла скрытый слой, достойный сокровищницы правителя.",
-    19: "Легендарная реликвия оказалась тем самым первообразом, с которого делали поздние копии.",
+    19: "Очень редкое исполнение раскрывает предел возможностей этой вещи, не превращая её в мировой артефакт.",
 }
 
 MEDIANS = {
     1: 20,
-    2: 55,
-    3: 130,
-    4: 300,
-    5: 650,
-    6: 1_300,
-    7: 2_500,
-    8: 4_700,
-    9: 8_500,
-    10: 15_000,
-    11: 27_000,
-    12: 48_000,
-    13: 85_000,
-    14: 155_000,
-    15: 290_000,
-    16: 600_000,
-    17: 1_350_000,
-    18: 3_600_000,
-    19: 12_000_000,
+    2: 100,
+    3: 250,
+    4: 600,
+    5: 1_200,
+    6: 2_500,
+    7: 4_500,
+    8: 8_500,
+    9: 16_000,
+    10: 30_000,
+    11: 45_000,
+    12: 75_000,
+    13: 110_000,
+    14: 165_000,
+    15: 260_000,
+    16: 360_000,
+    17: 470_000,
+    18: 675_000,
+    19: 1_100_000,
+    20: 1_650_000,
 }
 
 ROLL_NAMES: dict[int, list[str]] = {
@@ -1306,29 +1317,49 @@ ROLL_NAMES: dict[int, list[str]] = {
 
 def item_value(roll: int, index: int) -> int:
     # A stable spread around each tier median; individual categories may cross.
-    factors = (0.55, 0.68, 0.78, 0.88, 0.96, 1.0, 1.08, 1.18, 1.32, 1.48)
+    factors = (
+        (0.50, 0.62, 0.74, 0.86, 0.95, 1.0, 1.12, 1.28, 1.48, 1.80)
+        if roll == 20
+        else (0.55, 0.68, 0.78, 0.88, 0.96, 1.0, 1.08, 1.18, 1.32, 1.48)
+    )
     return max(1, int(MEDIANS[roll] * factors[(index * 7 + roll) % len(factors)]))
 
 
-def lucky_multiplier(roll: int, index: int) -> int:
-    base = 250 if roll == 1 else 140 if roll <= 3 else 50 if roll <= 7 else 20 if roll <= 12 else 9 if roll <= 15 else 4
-    return base + index % 7
+LUCKY_CAPS = {
+    1: 10_000, 2: 15_000, 3: 18_000, 4: 20_000, 5: 20_000,
+    6: 75_000, 7: 120_000, 8: 175_000, 9: 240_000, 10: 300_000,
+    11: 360_000, 12: 480_000, 13: 600_000, 14: 720_000, 15: 800_000,
+    16: 1_200_000, 17: 1_500_000, 18: 2_000_000, 19: 3_000_000,
+    20: 4_500_000,
+}
+
+LUCKY_MULTIPLIERS = {
+    1: 250, 2: 100, 3: 50, 4: 25, 5: 14,
+    6: 10, 7: 9, 8: 8, 9: 7, 10: 6,
+    11: 5, 12: 5, 13: 4, 14: 4, 15: 3,
+    16: 3, 17: 3, 18: 3, 19: 3, 20: 2,
+}
+
+
+def lucky_value(roll: int, index: int, normal_value: int) -> int:
+    multiplier = LUCKY_MULTIPLIERS[roll] + index % 3
+    return max(normal_value, min(LUCKY_CAPS[roll], normal_value * multiplier))
 
 
 ARTIFACTS = [
-    ("A2001", "Книга возвышенных деяний", "Book of Exalted Deeds", "Священный том хранит возвышенные знания и требует от читателя безупречной нравственной стойкости.", 650_000_000, "GOOD", "Dungeon Master's Guide; https://www.dndbeyond.com/magic-items/5423-book-of-exalted-deeds", "artifact,book,good"),
-    ("A2002", "Топор владык дворфов", "Axe of the Dwarvish Lords", "Древняя секира воплощает мастерство и власть первых дворфских правителей.", 780_000_000, "GOOD", "Dungeon Master's Guide; https://www.dndbeyond.com/magic-items", "artifact,weapon,dwarf"),
-    ("A2003", "Посох Рао", "Crook of Rao", "Повреждённая священная реликвия способна изгонять потустороннее зло, хотя её история оставила опасные трещины.", 590_000_000, "GOOD", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,religion,good"),
-    ("A2004", "Ступа и пест Бабы-яги", "Baba Yaga's Mortar and Pestle", "Легендарная ведьмовская утварь служит мастерской, средством путешествия и грозным орудием.", 520_000_000, "GOOD", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,tool,travel"),
-    ("A2005", "Могучий слуга Люк-О", "Mighty Servant of Leuk-o", "Исполинская шагающая машина заключает огромную силу и память жестокого воителя.", 940_000_000, "GOOD", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,construct,vehicle"),
-    ("A2101", "Книга мерзкой тьмы", "Book of Vile Darkness", "Зловещий том собирает запретные знания и медленно портит всё, что оказывается рядом.", 620_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/magic-items", "artifact,book,evil"),
-    ("A2102", "Глаз Векны", "Eye of Vecna", "Иссохший глаз древнего лича дарует страшное могущество ценой тела и воли нового носителя.", 760_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/posts/1256-how-to-make-vecna-the-big-bad-of-your-d-d-campaign", "artifact,vecna,cursed"),
-    ("A2103", "Рука Векны", "Hand of Vecna", "Мумифицированная кисть несёт силу Векны и требует чудовищной жертвы ради её присвоения.", 740_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/posts/1256-how-to-make-vecna-the-big-bad-of-your-d-d-campaign", "artifact,vecna,cursed"),
-    ("A2104", "Сфера драконов", "Orb of Dragonkind", "Одна из древних сфер зовёт драконов и хранит разум, способный подчинить неосторожного владельца.", 480_000_000, "DANGEROUS", "SRD 5.1; https://www.dndbeyond.com/attachments/39j2li89/SRD5.1-CCBY4.0License.pdf", "artifact,dragon,ambiguous"),
-    ("A2105", "Меч Каса", "Sword of Kas", "Разумный клинок жаждет мести Векне, но его собственная воля кровожадна и опасна.", 710_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/posts/1256-how-to-make-vecna-the-big-bad-of-your-d-d-campaign", "artifact,weapon,sentient"),
-    ("A2106", "Жезл Оркуса", "Wand of Orcus", "Увенчанный черепом жезл воплощает волю князя нежити и ненавидит всё живое.", 1_250_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/magic-items", "artifact,undead,evil"),
-    ("A2107", "Демономикон Иггвильв", "Demonomicon of Iggwilv", "Трактат о Бездне удерживает демонические тайны, которые легко обращаются против читателя.", 560_000_000, "DANGEROUS", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,book,demon"),
-    ("A2108", "Зубы Дальвер-Нара", "Teeth of Dahlver-Nar", "Набор разнородных зубов вызывает великие чудеса, но каждый опыт оставляет непредсказуемый след.", 430_000_000, "DANGEROUS", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,oddity,ambiguous"),
+    ("A2001", "Книга возвышенных деяний", "Book of Exalted Deeds", "Священный том хранит возвышенные знания и требует от читателя безупречной нравственной стойкости.", 72_000_000, "GOOD", "Dungeon Master's Guide; https://www.dndbeyond.com/magic-items/5423-book-of-exalted-deeds", "artifact,book,good"),
+    ("A2002", "Топор владык дворфов", "Axe of the Dwarvish Lords", "Древняя секира воплощает мастерство и власть первых дворфских правителей.", 64_000_000, "GOOD", "Dungeon Master's Guide; https://www.dndbeyond.com/magic-items", "artifact,weapon,dwarf"),
+    ("A2003", "Посох Рао", "Crook of Rao", "Повреждённая священная реликвия способна изгонять потустороннее зло, хотя её история оставила опасные трещины.", 46_000_000, "GOOD", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,religion,good"),
+    ("A2004", "Ступа и пест Бабы-яги", "Baba Yaga's Mortar and Pestle", "Легендарная ведьмовская утварь служит мастерской, средством путешествия и грозным орудием.", 41_000_000, "GOOD", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,tool,travel"),
+    ("A2005", "Могучий слуга Люк-О", "Mighty Servant of Leuk-o", "Исполинская шагающая машина заключает огромную силу и память жестокого воителя.", 88_000_000, "GOOD", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,construct,vehicle"),
+    ("A2101", "Книга мерзкой тьмы", "Book of Vile Darkness", "Зловещий том собирает запретные знания и медленно портит всё, что оказывается рядом.", 70_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/magic-items", "artifact,book,evil"),
+    ("A2102", "Глаз Векны", "Eye of Vecna", "Иссохший глаз древнего лича дарует страшное могущество ценой тела и воли нового носителя.", 92_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/posts/1256-how-to-make-vecna-the-big-bad-of-your-d-d-campaign", "artifact,vecna,cursed"),
+    ("A2103", "Рука Векны", "Hand of Vecna", "Мумифицированная кисть несёт силу Векны и требует чудовищной жертвы ради её присвоения.", 90_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/posts/1256-how-to-make-vecna-the-big-bad-of-your-d-d-campaign", "artifact,vecna,cursed"),
+    ("A2104", "Сфера драконов", "Orb of Dragonkind", "Одна из древних сфер зовёт драконов и хранит разум, способный подчинить неосторожного владельца.", 52_000_000, "DANGEROUS", "SRD 5.1; https://www.dndbeyond.com/attachments/39j2li89/SRD5.1-CCBY4.0License.pdf", "artifact,dragon,ambiguous"),
+    ("A2105", "Меч Каса", "Sword of Kas", "Разумный клинок жаждет мести Векне, но его собственная воля кровожадна и опасна.", 82_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/posts/1256-how-to-make-vecna-the-big-bad-of-your-d-d-campaign", "artifact,weapon,sentient"),
+    ("A2106", "Жезл Оркуса", "Wand of Orcus", "Увенчанный черепом жезл воплощает волю князя нежити и ненавидит всё живое.", 98_000_000, "DANGEROUS", "Dungeon Master's Guide; https://www.dndbeyond.com/magic-items", "artifact,undead,evil"),
+    ("A2107", "Демономикон Иггвильв", "Demonomicon of Iggwilv", "Трактат о Бездне удерживает демонические тайны, которые легко обращаются против читателя.", 61_000_000, "DANGEROUS", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,book,demon"),
+    ("A2108", "Зубы Дальвер-Нара", "Teeth of Dahlver-Nar", "Набор разнородных зубов вызывает великие чудеса, но каждый опыт оставляет непредсказуемый след.", 34_000_000, "DANGEROUS", "Tasha's Cauldron of Everything; https://www.dndbeyond.com/magic-items", "artifact,oddity,ambiguous"),
 ]
 
 
@@ -1341,6 +1372,8 @@ def main() -> None:
     for roll, names in ROLL_NAMES.items():
         if len(names) != 55:
             raise SystemExit(f"Roll {roll} contains {len(names)} names instead of 55")
+        if len(EXTRA_NAMES[roll]) != 25:
+            raise SystemExit(f"Roll {roll} contains {len(EXTRA_NAMES[roll])} extra names instead of 25")
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     item_path = DATA_DIR / "items.csv"
@@ -1353,8 +1386,18 @@ def main() -> None:
         writer.writeheader()
         record_id = 1
         for roll in range(1, 20):
-            for index, (name, slot) in enumerate(zip(ROLL_NAMES[roll], SLOTS)):
-                tag, normal_detail, lucky_detail = slot
+            for index, (current_name, slot) in enumerate(zip(ROLL_NAMES[roll], SLOTS)):
+                name = base_name_for(roll, index, current_name)
+                source_tag, source_normal_detail, source_lucky_detail = slot
+                tag, normal_detail, lucky_name, lucky_detail = base_metadata(
+                    roll,
+                    index,
+                    name,
+                    source_tag,
+                    source_normal_detail,
+                    source_lucky_detail,
+                    LUCKY_SUFFIXES[index],
+                )
                 value = item_value(roll, index)
                 writer.writerow(
                     {
@@ -1363,13 +1406,52 @@ def main() -> None:
                         "name": name,
                         "description": f"{CONDITIONS[roll]} {normal_detail}",
                         "value_cp": value,
-                        "lucky_name": f"{name} — {LUCKY_SUFFIXES[index]}",
+                        "lucky_name": lucky_name,
                         "lucky_description": f"{lucky_detail} {LUCKY_TIERS[roll]} {LUCKY_ENDINGS[(roll * 3 + index) % len(LUCKY_ENDINGS)]}",
-                        "lucky_value_cp": value * lucky_multiplier(roll, index),
-                        "tags": f"{tag},tier-{roll}",
+                        "lucky_value_cp": lucky_value(roll, index, value),
+                        "tags": f"{tag},{band_tag(roll)},tier-{roll}",
                     }
                 )
                 record_id += 1
+
+            for extra_index, (name, profile) in enumerate(
+                zip(EXTRA_NAMES[roll], extra_profile_for(roll))
+            ):
+                tag, normal_detail, lucky_suffix, lucky_detail = profile
+                index = len(SLOTS) + extra_index
+                value = item_value(roll, index)
+                writer.writerow(
+                    {
+                        "id": f"I{record_id:04d}",
+                        "roll": roll,
+                        "name": name,
+                        "description": f"{CONDITIONS[roll]} {normal_detail}",
+                        "value_cp": value,
+                        "lucky_name": f"{name} — {lucky_suffix}",
+                        "lucky_description": f"{lucky_detail} {LUCKY_TIERS[roll]} {LUCKY_ENDINGS[(roll * 3 + index) % len(LUCKY_ENDINGS)]}",
+                        "lucky_value_cp": lucky_value(roll, index, value),
+                        "tags": f"{tag},{band_tag(roll)},tier-{roll}",
+                    }
+                )
+                record_id += 1
+
+        for index, name in enumerate(ROLL20_NAMES):
+            tag, description, lucky_name, lucky_description = roll20_metadata(index, name)
+            value = item_value(20, index)
+            writer.writerow(
+                {
+                    "id": f"I{record_id:04d}",
+                    "roll": 20,
+                    "name": name,
+                    "description": description,
+                    "value_cp": value,
+                    "lucky_name": lucky_name,
+                    "lucky_description": lucky_description,
+                    "lucky_value_cp": lucky_value(20, index, value),
+                    "tags": f"{tag},{band_tag(20)},tier-20,non-artifact",
+                }
+            )
+            record_id += 1
 
     artifact_path = DATA_DIR / "artifacts.csv"
     with artifact_path.open("w", encoding="utf-8-sig", newline="") as handle:

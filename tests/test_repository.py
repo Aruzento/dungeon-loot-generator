@@ -13,7 +13,8 @@ class RepositoryTests(unittest.TestCase):
     def test_every_regular_roll_can_be_loaded(self) -> None:
         for roll in range(1, 20):
             with self.subTest(roll=roll):
-                self.assertGreaterEqual(len(self.repo.items_for_roll(roll)), 55)
+                self.assertGreaterEqual(len(self.repo.items_for_roll(roll)), 80)
+        self.assertGreaterEqual(len(self.repo.items_for_roll(20)), 125)
 
     def test_artifact_pools_can_be_loaded(self) -> None:
         self.assertTrue(self.repo.artifacts("GOOD"))

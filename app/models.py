@@ -36,6 +36,7 @@ class LootResult:
     description: str
     value_cp: int
     is_lucky: bool
+    is_artifact: bool
     item_id: str
 
 

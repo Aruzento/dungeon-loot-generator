@@ -77,14 +77,40 @@ class LootEngineTests(unittest.TestCase):
         item = self.repo.items_for_roll(1)[0]
         self.assertEqual(result.item_id, item.id)
         self.assertEqual(result.name, item.lucky_name)
+        self.assertFalse(result.is_artifact)
         self.assertNotIn(result.item_id, {a.id for a in self.repo.all_artifacts()})
 
-    def test_roll_twenty_uses_polarity_specific_artifact_pools(self) -> None:
-        ordinary = LootEngine(self.repo, self.states, StubRandom([0.99])).generate("20")
-        self.assertIn(ordinary.item_id, {a.id for a in self.repo.artifacts("DANGEROUS")})
+    def test_roll_twenty_without_lucky_uses_regular_item(self) -> None:
+        result = LootEngine(self.repo, self.states, StubRandom([0.99])).generate("20")
+        self.assertIn(result.item_id, {item.id for item in self.repo.items_for_roll(20)})
+        self.assertNotIn(result.item_id, {a.id for a in self.repo.all_artifacts()})
+        self.assertFalse(result.is_artifact)
+
+    def test_roll_twenty_with_lucky_uses_artifact(self) -> None:
         self.states.save(AppState(100))
-        lucky = LootEngine(self.repo, self.states, StubRandom([])).generate("20")
-        self.assertIn(lucky.item_id, {a.id for a in self.repo.artifacts("GOOD")})
+        rng = StubRandom([])
+        result = LootEngine(self.repo, self.states, rng).generate("20")
+        self.assertIn(result.item_id, {a.id for a in self.repo.all_artifacts()})
+        self.assertTrue(result.is_artifact)
+        self.assertEqual(rng.choice_calls, 1)
+
+    def test_artifact_can_never_drop_without_lucky(self) -> None:
+        artifact_ids = {artifact.id for artifact in self.repo.all_artifacts()}
+        for roll in range(1, 21):
+            with self.subTest(roll=roll):
+                self.states.save(AppState(1))
+                result = LootEngine(self.repo, self.states, StubRandom([0.99])).generate(str(roll))
+                self.assertNotIn(result.item_id, artifact_ids)
+                self.assertFalse(result.is_artifact)
+
+    def test_roll_nineteen_lucky_stays_non_artifact(self) -> None:
+        self.states.save(AppState(100))
+        result = LootEngine(self.repo, self.states, StubRandom([])).generate("19")
+        item = self.repo.items_for_roll(19)[0]
+        self.assertEqual(result.item_id, item.id)
+        self.assertEqual(result.name, item.lucky_name)
+        self.assertFalse(result.is_artifact)
+        self.assertNotIn(result.item_id, {a.id for a in self.repo.all_artifacts()})
 
     def test_parsing_and_price_format(self) -> None:
         self.assertEqual(parse_roll(" 20 "), 20)
