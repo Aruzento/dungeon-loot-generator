@@ -81,3 +81,12 @@ class LootEngine:
 
 def format_price(value_cp: int) -> str:
     return f"{value_cp:,}".replace(",", " ") + " медных монет"
+
+
+def format_sale_price(value_cp: int) -> str:
+    """Format the 10% resale value without losing fractions of a copper coin."""
+    whole, tenths = divmod(value_cp, 10)
+    amount = f"{whole:,}".replace(",", " ")
+    if tenths:
+        amount += f",{tenths}"
+    return amount + " медных монет"

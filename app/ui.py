@@ -3,7 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from app.loot_engine import LootEngine, format_price
+from app.loot_engine import LootEngine, format_sale_price
 from app.models import InvalidRollError, LootResult
 from app.repository import LootRepository
 from app.state_manager import StateManager
@@ -220,7 +220,7 @@ class DungeonLootApp:
             label.configure(bg=card_background)
         self.name_var.set(result.name)
         self.description_var.set(result.description)
-        self.price_var.set(f"Стоимость: {format_price(result.value_cp)}")
+        self.price_var.set(f"Цена продажи: {format_sale_price(result.value_cp)}")
 
 
 def run() -> None:

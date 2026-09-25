@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.loot_engine import LootEngine, format_price, parse_roll
+from app.loot_engine import LootEngine, format_price, format_sale_price, parse_roll
 from app.models import InvalidRollError
 from app.repository import LootRepository
 from app.state_manager import AppState, StateManager
@@ -115,3 +115,5 @@ class LootEngineTests(unittest.TestCase):
     def test_parsing_and_price_format(self) -> None:
         self.assertEqual(parse_roll(" 20 "), 20)
         self.assertEqual(format_price(2_450_000), "2 450 000 медных монет")
+        self.assertEqual(format_sale_price(2_450_000), "245 000 медных монет")
+        self.assertEqual(format_sale_price(11), "1,1 медных монет")
